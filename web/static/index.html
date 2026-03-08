@@ -8,446 +8,471 @@
 <meta name="theme-color" content="#000000">
 <title>FluxChi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 :root {
   --black: #000000;
-  --dark: #0a0a0a;
-  --surface: #111111;
+  --surface: #0a0a0a;
   --line: #1a1a1a;
-  --muted: #555555;
-  --dim: #888888;
-  --text: #d4d4d4;
-  --white: #ffffff;
+  --dot: #222222;
+  --muted: #444444;
+  --dim: #777777;
+  --text: #cccccc;
+  --white: #e8e8e8;
   --red: #d71921;
-  --red-dim: rgba(215, 25, 33, 0.12);
+  --red-glow: rgba(215,25,33,0.35);
+  --red-dim: rgba(215,25,33,0.08);
   --green: #3ddc84;
-  --green-dim: rgba(61, 220, 132, 0.12);
+  --green-glow: rgba(61,220,132,0.3);
   --yellow: #e8b931;
-  --yellow-dim: rgba(232, 185, 49, 0.12);
-  --mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  --yellow-glow: rgba(232,185,49,0.3);
+  --mono: 'JetBrains Mono', monospace;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html { background: var(--black); }
-
 body {
   font-family: var(--mono);
   background: var(--black);
   color: var(--text);
-  min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
+  position: relative;
 }
+
+/* ── Matrix glyph background ── */
+#glyphCanvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.content { position: relative; z-index: 1; }
 
 /* ── Header ── */
 .hdr {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.6);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .hdr-brand {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 4px;
   text-transform: uppercase;
   color: var(--white);
 }
-.hdr-brand i { color: var(--red); font-style: normal; }
-.hdr-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 0.5px;
+.hdr-brand i { color: var(--red); font-style: normal; text-shadow: 0 0 12px var(--red-glow); }
+.hdr-right { display: flex; align-items: center; gap: 8px; }
+.dot-strip {
+  display: flex; gap: 3px;
 }
-.dot {
-  width: 6px; height: 6px;
+.dot-pip {
+  width: 4px; height: 4px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--dot);
+  transition: background 0.3s, box-shadow 0.3s;
 }
-.dot.on { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.dot-pip.on {
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red-glow);
+  animation: pip-breathe 2s ease-in-out infinite;
+}
+@keyframes pip-breathe {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.hdr-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
 
-/* ── Layout ── */
+/* ── Page ── */
 .page {
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 16px 32px;
+  padding: 0 16px 40px;
 }
-
-@media (min-width: 768px) {
+@media (min-width:768px) {
   .page {
     max-width: 960px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0 24px;
+    gap: 0 32px;
   }
   .full { grid-column: 1 / -1; }
 }
 
-/* ── Section ── */
 .sec {
-  padding: 24px 0;
+  padding: 28px 0;
   border-bottom: 1px solid var(--line);
 }
 .sec:last-child { border-bottom: none; }
 .sec-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-label::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 1px;
+  background: var(--red);
+  box-shadow: 0 0 4px var(--red-glow);
 }
 
-/* ── Stamina ring ── */
-.ring-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.ring-svg { width: 200px; height: 200px; }
-.ring-bg { fill: none; stroke: var(--line); stroke-width: 6; }
+/* ── Stamina Ring ── */
+.ring-wrap { display: flex; flex-direction: column; align-items: center; }
+.ring-outer { position: relative; display: inline-block; }
+.ring-svg { width: 220px; height: 220px; }
+.ring-bg { fill: none; stroke: var(--line); stroke-width: 3; }
+.ring-dots { fill: none; stroke: var(--dot); stroke-width: 3; stroke-dasharray: 2 8; }
 .ring-fg {
   fill: none;
   stroke: var(--red);
-  stroke-width: 6;
+  stroke-width: 4;
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: center;
-  transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1), stroke 0.4s;
+  transition: stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1), stroke 0.5s;
+  filter: drop-shadow(0 0 6px var(--red-glow));
+}
+.ring-scan {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 1;
+  stroke-dasharray: 4 550;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  animation: ring-scan 3s linear infinite;
+  opacity: 0.4;
+}
+@keyframes ring-scan {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -553; }
 }
 .ring-center {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
   text-align: center;
 }
-.ring-outer { position: relative; display: inline-block; }
 .ring-num {
-  font-size: 56px;
-  font-weight: 700;
+  font-size: 60px;
+  font-weight: 800;
   color: var(--white);
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px var(--red-glow);
 }
-.ring-unit {
-  font-size: 13px;
+.ring-pct {
+  font-size: 16px;
   font-weight: 300;
-  color: var(--muted);
-  letter-spacing: 1px;
+  color: var(--dim);
 }
 .ring-state {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 1px;
-  margin-top: 4px;
+  letter-spacing: 3px;
+  margin-top: 6px;
+  text-transform: uppercase;
 }
 
-/* ── Stat row ── */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  margin-top: 20px;
+/* ── Glyph stats ── */
+.glyph-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 24px;
 }
-.stat {
-  background: var(--black);
+.g-stat {
+  flex: 1;
+  max-width: 120px;
   padding: 14px 8px;
   text-align: center;
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
 }
-.stat-val {
-  font-size: 22px;
+.g-stat::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+  animation: stat-scan 4s ease-in-out infinite;
+  opacity: 0;
+}
+.g-stat:hover::after { opacity: 1; }
+.g-stat-val {
+  font-size: 24px;
   font-weight: 700;
   color: var(--white);
   font-variant-numeric: tabular-nums;
 }
-.stat-lbl {
-  font-size: 9px;
-  color: var(--muted);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  margin-top: 4px;
-}
-
-/* ── Dimensions ── */
-.dims {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 16px;
-}
-.dim {
-  text-align: center;
-  padding: 12px 4px;
-  border: 1px solid var(--line);
-}
-.dim-val {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--white);
-  font-variant-numeric: tabular-nums;
-}
-.dim-bar {
-  width: 100%;
-  height: 3px;
-  background: var(--line);
-  margin: 8px 0 6px;
-  position: relative;
-  overflow: hidden;
-}
-.dim-bar-fill {
-  position: absolute;
-  left: 0; top: 0;
-  height: 100%;
-  background: var(--red);
-  transition: width 0.4s;
-}
-.dim-lbl {
-  font-size: 9px;
-  color: var(--muted);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-/* ── Suggestion banner ── */
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  margin-top: 20px;
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.5;
-  transition: border-color 0.3s, background 0.3s;
-}
-.banner.warn { border-color: var(--yellow); background: var(--yellow-dim); }
-.banner.urgent { border-color: var(--red); background: var(--red-dim); }
-.banner-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-  width: 28px;
-  text-align: center;
-}
-
-/* ── Activity ── */
-.act-bars { display: flex; flex-direction: column; gap: 8px; }
-.act-row { display: flex; align-items: center; gap: 8px; }
-.act-name {
-  width: 72px;
-  font-size: 11px;
-  color: var(--dim);
-  text-align: right;
-  flex-shrink: 0;
-  letter-spacing: 0.5px;
-}
-.act-track {
-  flex: 1;
-  height: 4px;
-  background: var(--line);
-  position: relative;
-  overflow: hidden;
-}
-.act-fill {
-  position: absolute;
-  left: 0; top: 0;
-  height: 100%;
-  background: var(--red);
-  transition: width 0.3s;
-}
-.act-pct {
-  width: 32px;
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── EMG grid ── */
-.emg-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-}
-.emg-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-.emg-track {
-  width: 100%;
-  height: 40px;
-  background: var(--surface);
-  position: relative;
-  overflow: hidden;
-}
-.emg-fill {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  background: var(--red);
-  opacity: 0.7;
-  transition: height 0.15s;
-}
-.emg-lbl {
+.g-stat-lbl {
   font-size: 8px;
-  color: var(--muted);
-  letter-spacing: 0.5px;
-}
-.emg-val {
-  font-size: 9px;
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Chart ── */
-.chart-wrap { height: 140px; margin-top: 4px; }
-
-/* ── Alerts ── */
-.alerts {
-  max-height: 160px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.alerts::-webkit-scrollbar { display: none; }
-.alert-item {
-  display: flex;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--dim);
-  animation: fadeUp 0.25s ease-out;
-}
-.alert-time {
-  color: var(--muted);
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-.alert-item.critical .alert-time { color: var(--red); }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Footer ── */
-.ftr {
-  text-align: center;
-  padding: 20px 0;
-  font-size: 9px;
   color: var(--muted);
   letter-spacing: 2px;
   text-transform: uppercase;
+  margin-top: 6px;
+}
+@keyframes stat-scan {
+  0%,100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+/* ── Banner ── */
+.banner {
+  margin-top: 20px;
+  padding: 12px 16px;
+  border-left: 2px solid var(--line);
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.6;
+  transition: all 0.3s;
+}
+.banner.warn { border-color: var(--yellow); color: var(--text); background: rgba(232,185,49,0.04); }
+.banner.urgent {
+  border-color: var(--red); color: var(--white); background: var(--red-dim);
+  animation: banner-pulse 2s ease-in-out infinite;
+}
+@keyframes banner-pulse {
+  0%,100% { background: var(--red-dim); }
+  50% { background: rgba(215,25,33,0.15); }
+}
+
+/* ── Dimensions ── */
+.dims { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.dim {
+  padding: 14px 8px;
+  border: 1px solid var(--line);
+  text-align: center;
+  position: relative;
+}
+.dim-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+.dim-dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin: 10px 0 8px;
+}
+.dim-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--dot);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.dim-dot.lit {
+  background: var(--red);
+  box-shadow: 0 0 4px var(--red-glow);
+}
+.dim-lbl {
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ── Activity ── */
+.act-bars { display: flex; flex-direction: column; gap: 10px; }
+.act-row { display: flex; align-items: center; gap: 8px; }
+.act-name {
+  width: 64px;
+  font-size: 10px;
+  color: var(--dim);
+  text-align: right;
+  letter-spacing: 0.5px;
+}
+.act-track {
+  flex: 1; height: 3px;
+  background: var(--line);
+  position: relative; overflow: hidden;
+}
+.act-fill {
+  position: absolute; left:0; top:0; height:100%;
+  background: var(--red);
+  box-shadow: 2px 0 8px var(--red-glow);
+  transition: width 0.3s;
+}
+.act-pct {
+  width: 30px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── EMG ── */
+.emg-grid {
+  display: grid;
+  grid-template-columns: repeat(8,1fr);
+  gap: 3px;
+}
+.emg-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.emg-track {
+  width: 100%; height: 44px;
+  background: var(--surface);
+  position: relative; overflow: hidden;
+  border-top: 1px solid var(--line);
+}
+.emg-fill {
+  position: absolute; bottom:0; width:100%;
+  background: var(--red);
+  opacity: 0.6;
+  transition: height 0.15s;
+}
+.emg-lbl { font-size: 7px; color: var(--muted); letter-spacing: 1px; }
+.emg-val { font-size: 8px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* ── Chart ── */
+.chart-wrap { height: 130px; }
+
+/* ── Alerts ── */
+.alerts { max-height: 150px; overflow-y: auto; scrollbar-width: none; }
+.alerts::-webkit-scrollbar { display: none; }
+.alert-item {
+  display: flex; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px; color: var(--dim);
+  animation: fadeUp 0.3s ease-out;
+}
+.alert-time { color: var(--muted); flex-shrink:0; font-variant-numeric: tabular-nums; }
+.alert-item.crit .alert-time { color: var(--red); text-shadow: 0 0 6px var(--red-glow); }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.ftr {
+  text-align:center; padding:24px 0;
+  font-size:8px; color: var(--muted);
+  letter-spacing:3px; text-transform:uppercase;
 }
 </style>
 </head>
 <body>
 
+<canvas id="glyphCanvas"></canvas>
+
+<div class="content">
+
 <div class="hdr">
   <div class="hdr-brand">FLUX<i>CHI</i></div>
-  <div class="hdr-status">
-    <span class="dot" id="dot"></span>
-    <span id="connText">OFFLINE</span>
+  <div class="hdr-right">
+    <div class="dot-strip" id="dotStrip">
+      <div class="dot-pip"></div><div class="dot-pip"></div><div class="dot-pip"></div>
+      <div class="dot-pip"></div><div class="dot-pip"></div>
+    </div>
+    <span class="hdr-label" id="connText">OFFLINE</span>
   </div>
 </div>
 
 <div class="page">
 
-  <!-- ── Stamina ── -->
   <div class="sec full">
     <div class="ring-wrap">
       <div class="ring-outer">
-        <svg class="ring-svg" viewBox="0 0 200 200">
-          <circle class="ring-bg" cx="100" cy="100" r="88" />
-          <circle class="ring-fg" id="ringFg" cx="100" cy="100" r="88" />
+        <svg class="ring-svg" viewBox="0 0 220 220">
+          <circle class="ring-bg" cx="110" cy="110" r="88"/>
+          <circle class="ring-dots" cx="110" cy="110" r="96"/>
+          <circle class="ring-fg" id="ringFg" cx="110" cy="110" r="88"/>
+          <circle class="ring-scan" cx="110" cy="110" r="88"/>
         </svg>
         <div class="ring-center">
-          <div class="ring-num" id="ringNum">—</div>
-          <div class="ring-unit">STAMINA</div>
-          <div class="ring-state" id="ringState">—</div>
+          <div><span class="ring-num" id="ringNum">—</span><span class="ring-pct">%</span></div>
+          <div class="ring-state" id="ringState">INITIALIZING</div>
         </div>
       </div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-val" id="sWork">0</div>
-        <div class="stat-lbl">WORK MIN</div>
+    <div class="glyph-stats">
+      <div class="g-stat">
+        <div class="g-stat-val" id="sWork">0</div>
+        <div class="g-stat-lbl">WORK</div>
       </div>
-      <div class="stat">
-        <div class="stat-val" id="sTotal">0</div>
-        <div class="stat-lbl">TOTAL MIN</div>
+      <div class="g-stat">
+        <div class="g-stat-val" id="sTotal">0</div>
+        <div class="g-stat-lbl">TOTAL</div>
       </div>
-      <div class="stat">
-        <div class="stat-val" id="sSuggest">—</div>
-        <div class="stat-lbl" id="sSuggestLbl">ESTIMATE</div>
+      <div class="g-stat">
+        <div class="g-stat-val" id="sSuggest">—</div>
+        <div class="g-stat-lbl" id="sSugLbl">EST</div>
       </div>
     </div>
 
     <div id="bannerWrap"></div>
   </div>
 
-  <!-- ── Dimensions ── -->
   <div class="sec">
     <div class="sec-label">DIMENSIONS</div>
     <div class="dims">
       <div class="dim">
-        <div class="dim-val" id="dCon">—</div>
-        <div class="dim-bar"><div class="dim-bar-fill" id="dConBar" style="width:0%"></div></div>
+        <div class="dim-val" id="dC">—</div>
+        <div class="dim-dots" id="dCDots"></div>
         <div class="dim-lbl">FOCUS</div>
       </div>
       <div class="dim">
-        <div class="dim-val" id="dTen">—</div>
-        <div class="dim-bar"><div class="dim-bar-fill" id="dTenBar" style="width:0%"></div></div>
+        <div class="dim-val" id="dT">—</div>
+        <div class="dim-dots" id="dTDots"></div>
         <div class="dim-lbl">TENSION</div>
       </div>
       <div class="dim">
-        <div class="dim-val" id="dFat">—</div>
-        <div class="dim-bar"><div class="dim-bar-fill" id="dFatBar" style="width:0%"></div></div>
+        <div class="dim-val" id="dF">—</div>
+        <div class="dim-dots" id="dFDots"></div>
         <div class="dim-lbl">FATIGUE</div>
       </div>
     </div>
   </div>
 
-  <!-- ── Activity ── -->
   <div class="sec">
     <div class="sec-label">ACTIVITY</div>
     <div class="act-bars" id="actBars"></div>
   </div>
 
-  <!-- ── EMG ── -->
   <div class="sec full">
-    <div class="sec-label">EMG CHANNELS</div>
+    <div class="sec-label">SIGNAL</div>
     <div class="emg-grid">
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e1"></div></div><div class="emg-lbl">1</div><div class="emg-val" id="ev1">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e2"></div></div><div class="emg-lbl">2</div><div class="emg-val" id="ev2">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e3"></div></div><div class="emg-lbl">3</div><div class="emg-val" id="ev3">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e4"></div></div><div class="emg-lbl">4</div><div class="emg-val" id="ev4">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e5"></div></div><div class="emg-lbl">5</div><div class="emg-val" id="ev5">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e6"></div></div><div class="emg-lbl">6</div><div class="emg-val" id="ev6">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e7"></div></div><div class="emg-lbl">7</div><div class="emg-val" id="ev7">0</div></div>
-      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e8"></div></div><div class="emg-lbl">8</div><div class="emg-val" id="ev8">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e1"></div></div><div class="emg-lbl">01</div><div class="emg-val" id="ev1">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e2"></div></div><div class="emg-lbl">02</div><div class="emg-val" id="ev2">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e3"></div></div><div class="emg-lbl">03</div><div class="emg-val" id="ev3">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e4"></div></div><div class="emg-lbl">04</div><div class="emg-val" id="ev4">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e5"></div></div><div class="emg-lbl">05</div><div class="emg-val" id="ev5">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e6"></div></div><div class="emg-lbl">06</div><div class="emg-val" id="ev6">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e7"></div></div><div class="emg-lbl">07</div><div class="emg-val" id="ev7">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e8"></div></div><div class="emg-lbl">08</div><div class="emg-val" id="ev8">0</div></div>
     </div>
   </div>
 
-  <!-- ── Trend ── -->
   <div class="sec full">
     <div class="sec-label">TREND</div>
     <div class="chart-wrap">
@@ -455,31 +480,101 @@ body {
     </div>
   </div>
 
-  <!-- ── Alerts ── -->
   <div class="sec full">
-    <div class="sec-label">ALERTS</div>
+    <div class="sec-label">LOG</div>
     <div class="alerts" id="alerts">
-      <div class="alert-item"><span class="alert-time">—</span><span>Waiting for signal...</span></div>
+      <div class="alert-item"><span class="alert-time">--:--</span><span>AWAITING SIGNAL...</span></div>
     </div>
   </div>
 
 </div>
 
-<div class="ftr">FLUXCHI V2.1</div>
+<div class="ftr">FLUXCHI · EMG STAMINA ENGINE</div>
+
+</div>
 
 <script>
+/* ══════════════════════════════════════════════════════════════
+   Matrix Glyph Background
+   ══════════════════════════════════════════════════════════════ */
+(function initGlyph(){
+  const cv = document.getElementById('glyphCanvas');
+  const ctx = cv.getContext('2d');
+  let W, H, cols, drops;
+  const GLYPHS = '01.:·∴∵◦◯◎⊙⬡⬢▪▫░▒▓╋╬═║┃┊┋';
+  const FONT_SIZE = 14;
+
+  function resize(){
+    W = cv.width = window.innerWidth;
+    H = cv.height = window.innerHeight;
+    cols = Math.floor(W / FONT_SIZE);
+    drops = Array.from({length: cols}, () => Math.random() * -100);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function draw(){
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = FONT_SIZE + 'px JetBrains Mono';
+
+    for(let i = 0; i < cols; i++){
+      const ch = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+      const x = i * FONT_SIZE;
+      const y = drops[i] * FONT_SIZE;
+
+      const bright = Math.random();
+      if(bright > 0.97){
+        ctx.fillStyle = 'rgba(215, 25, 33, 0.6)';
+      } else {
+        ctx.fillStyle = `rgba(80, 80, 80, ${0.15 + Math.random() * 0.1})`;
+      }
+      ctx.fillText(ch, x, y);
+
+      if(y > H && Math.random() > 0.985){
+        drops[i] = 0;
+      }
+      drops[i] += 0.3 + Math.random() * 0.2;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   Dot dimension initializer
+   ══════════════════════════════════════════════════════════════ */
+const DOT_COUNT = 10;
+['dCDots','dTDots','dFDots'].forEach(id => {
+  const el = document.getElementById(id);
+  for(let i = 0; i < DOT_COUNT; i++){
+    const d = document.createElement('div');
+    d.className = 'dim-dot';
+    el.appendChild(d);
+  }
+});
+
+function setDimDots(containerId, fraction){
+  const dots = document.getElementById(containerId).querySelectorAll('.dim-dot');
+  const lit = Math.round(fraction * DOT_COUNT);
+  dots.forEach((d,i) => d.classList.toggle('lit', i < lit));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WebSocket & UI
+   ══════════════════════════════════════════════════════════════ */
 const NAMES = {
-  typing:'TYPE', mouse_use:'MOUSE', idle:'IDLE', stretching:'STRETCH',
-  finger_movement:'FINGER', rest:'REST', wrist_extend:'W.EXT',
-  wrist_flex:'W.FLEX', wrist_movement:'W.MOV'
+  typing:'TYPE', mouse_use:'MOUSE', idle:'IDLE', stretching:'STRCH',
+  finger_movement:'FNGR', rest:'REST', wrist_extend:'W·EXT',
+  wrist_flex:'W·FLX', wrist_movement:'W·MOV'
 };
-const STATES = {
-  focused: {t:'FOCUSED', c:'var(--red)'},
-  fading:  {t:'FADING',  c:'var(--yellow)'},
-  depleted:{t:'DEPLETED',c:'var(--red)'},
-  recovering:{t:'RECOVER',c:'var(--green)'}
+const ST = {
+  focused:  {t:'FOCUSED',  c:'var(--red)',    gc:'var(--red-glow)'},
+  fading:   {t:'FADING',   c:'var(--yellow)', gc:'var(--yellow-glow)'},
+  depleted: {t:'DEPLETED', c:'var(--red)',    gc:'var(--red-glow)'},
+  recovering:{t:'RECOVER', c:'var(--green)',  gc:'var(--green-glow)'}
 };
-const REC = {keep_working:'CONTINUE', take_break:'TAKE BREAK', start_working:'READY', rest_more:'REST MORE'};
+const REC = {keep_working:'CONTINUE', take_break:'BREAK', start_working:'READY', rest_more:'REST'};
 
 let ws, knownActs = new Set(), history = [];
 const MAX_H = 150;
@@ -492,15 +587,21 @@ ringEl.style.strokeDashoffset = CIRC;
 const chart = new Chart(document.getElementById('trendChart'), {
   type:'line',
   data:{labels:[], datasets:[{
-    data:[], borderColor:'#d71921', backgroundColor:'rgba(215,25,33,0.06)',
-    fill:true, tension:0.3, pointRadius:0, borderWidth:1.5
+    data:[], borderColor:'#d71921',
+    backgroundColor: (ctx) => {
+      const g = ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
+      g.addColorStop(0,'rgba(215,25,33,0.15)');
+      g.addColorStop(1,'rgba(215,25,33,0)');
+      return g;
+    },
+    fill:true, tension:0.4, pointRadius:0, borderWidth:1.5
   }]},
   options:{
     responsive:true, maintainAspectRatio:false,
     animation:{duration:0},
     scales:{
       x:{display:false},
-      y:{min:0, max:100, ticks:{color:'#555', font:{family:'JetBrains Mono',size:10}, callback:v=>v+'%'}, grid:{color:'#1a1a1a'}}
+      y:{min:0, max:100, ticks:{color:'#444', font:{family:'JetBrains Mono',size:9}, callback:v=>v}, grid:{color:'#141414'}}
     },
     plugins:{legend:{display:false}}
   }
@@ -509,68 +610,66 @@ const chart = new Chart(document.getElementById('trendChart'), {
 function connect(){
   const proto = location.protocol==='https:'?'wss:':'ws:';
   ws = new WebSocket(`${proto}//${location.host}/ws`);
-  ws.onopen = ()=>{
-    document.getElementById('dot').className='dot on';
-    document.getElementById('connText').textContent='LIVE';
+  ws.onopen = () => {
+    document.querySelectorAll('.dot-pip').forEach(d => d.classList.add('on'));
+    document.getElementById('connText').textContent = 'LIVE';
   };
-  ws.onclose = ()=>{
-    document.getElementById('dot').className='dot';
-    document.getElementById('connText').textContent='OFFLINE';
+  ws.onclose = () => {
+    document.querySelectorAll('.dot-pip').forEach(d => d.classList.remove('on'));
+    document.getElementById('connText').textContent = 'OFFLINE';
     setTimeout(connect, 2000);
   };
-  ws.onmessage = e=>{
+  ws.onmessage = e => {
     const d = JSON.parse(e.data);
-    if(d.type==='state_update') render(d);
+    if(d.type === 'state_update') render(d);
   };
 }
 
 function render(d){
-  const st = d.stamina||{};
-  const dec = d.decision||{};
-  const val = st.value!=null ? st.value : 100;
-  const state = st.state||'focused';
+  const st = d.stamina || {};
+  const dec = d.decision || {};
+  const val = st.value != null ? st.value : 100;
+  const state = st.state || 'focused';
+  const info = ST[state] || ST.focused;
 
   // Ring
-  const offset = CIRC * (1 - val/100);
-  ringEl.style.strokeDashoffset = offset;
-  const sInfo = STATES[state]||STATES.focused;
-  ringEl.style.stroke = sInfo.c;
+  ringEl.style.strokeDashoffset = CIRC * (1 - val / 100);
+  ringEl.style.stroke = info.c;
+  ringEl.style.filter = `drop-shadow(0 0 8px ${info.gc})`;
   document.getElementById('ringNum').textContent = Math.round(val);
+  document.getElementById('ringNum').style.textShadow = `0 0 24px ${info.gc}`;
   const rs = document.getElementById('ringState');
-  rs.textContent = sInfo.t;
-  rs.style.color = sInfo.c;
+  rs.textContent = info.t;
+  rs.style.color = info.c;
 
   // Stats
   document.getElementById('sWork').textContent = Math.round(dec.continuous_work_min||0);
   document.getElementById('sTotal').textContent = Math.round(dec.total_work_min||0);
-  const sugEl = document.getElementById('sSuggest');
-  const sugLbl = document.getElementById('sSuggestLbl');
-  if(state==='recovering'){
-    sugEl.textContent = Math.round(st.suggested_break_min||0);
-    sugLbl.textContent = 'REST MIN';
+  if(state === 'recovering'){
+    document.getElementById('sSuggest').textContent = Math.round(st.suggested_break_min||0);
+    document.getElementById('sSugLbl').textContent = 'REST';
   } else {
-    sugEl.textContent = Math.round(st.suggested_work_min||0);
-    sugLbl.textContent = 'FOCUS MIN';
+    document.getElementById('sSuggest').textContent = Math.round(st.suggested_work_min||0);
+    document.getElementById('sSugLbl').textContent = 'FOCUS';
   }
 
   // Banner
   const bw = document.getElementById('bannerWrap');
-  const rec = REC[dec.recommendation]||'';
   const reasons = (dec.reasons||[]).join(' · ');
-  if(dec.urgency>=0.5){
-    bw.innerHTML = `<div class="banner ${dec.urgency>=0.7?'urgent':'warn'}"><span class="banner-icon">${dec.urgency>=0.7?'◉':'◎'}</span><span>${rec} — ${reasons}</span></div>`;
+  if(dec.urgency >= 0.5){
+    bw.innerHTML = `<div class="banner ${dec.urgency>=0.7?'urgent':'warn'}">${REC[dec.recommendation]||''} — ${reasons}</div>`;
   } else if(reasons){
-    bw.innerHTML = `<div class="banner"><span class="banner-icon">·</span><span>${reasons}</span></div>`;
+    bw.innerHTML = `<div class="banner">${reasons}</div>`;
   }
 
   // Dimensions
-  const con = (st.consistency||0)*100, ten = (st.tension||0)*100, fat = (st.fatigue||0)*100;
-  document.getElementById('dCon').textContent = Math.round(con)+'%';
-  document.getElementById('dTen').textContent = Math.round(ten)+'%';
-  document.getElementById('dFat').textContent = Math.round(fat)+'%';
-  document.getElementById('dConBar').style.width = con+'%';
-  document.getElementById('dTenBar').style.width = ten+'%';
-  document.getElementById('dFatBar').style.width = fat+'%';
+  const con = st.consistency||0, ten = st.tension||0, fat = st.fatigue||0;
+  document.getElementById('dC').textContent = Math.round(con*100) + '%';
+  document.getElementById('dT').textContent = Math.round(ten*100) + '%';
+  document.getElementById('dF').textContent = Math.round(fat*100) + '%';
+  setDimDots('dCDots', con);
+  setDimDots('dTDots', ten);
+  setDimDots('dFDots', fat);
 
   // Activity
   const probs = d.probabilities||{};
@@ -581,47 +680,46 @@ function render(d){
     c.innerHTML = '';
     for(const k of keys){
       const row = document.createElement('div');
-      row.className='act-row';
+      row.className = 'act-row';
       row.innerHTML = `<span class="act-name">${NAMES[k]||k}</span><div class="act-track"><div class="act-fill" id="af-${k}"></div></div><span class="act-pct" id="ap-${k}">0%</span>`;
       c.appendChild(row);
     }
   }
   for(const [k,v] of Object.entries(probs)){
-    const f=document.getElementById('af-'+k), p=document.getElementById('ap-'+k);
-    if(f) f.style.width=(v*100).toFixed(0)+'%';
-    if(p) p.textContent=(v*100).toFixed(0)+'%';
+    const f = document.getElementById('af-'+k), p = document.getElementById('ap-'+k);
+    if(f) f.style.width = (v*100).toFixed(0)+'%';
+    if(p) p.textContent = (v*100).toFixed(0)+'%';
   }
 
   // EMG
   const rms = d.rms||[];
   const mx = Math.max(...rms, 1);
   for(let i=0;i<8;i++){
-    const v=rms[i]||0;
-    const f=document.getElementById('e'+(i+1));
-    const ev=document.getElementById('ev'+(i+1));
-    if(f) f.style.height=Math.min(100,(v/mx)*100)+'%';
-    if(ev) ev.textContent=Math.round(v);
+    const v = rms[i]||0;
+    const f = document.getElementById('e'+(i+1));
+    const ev = document.getElementById('ev'+(i+1));
+    if(f) f.style.height = Math.min(100,(v/mx)*100)+'%';
+    if(ev) ev.textContent = Math.round(v);
   }
 
   // Trend
   history.push(val);
-  if(history.length>MAX_H) history.shift();
+  if(history.length > MAX_H) history.shift();
   chart.data.labels = history.map((_,i)=>i);
   chart.data.datasets[0].data = history;
   chart.update();
 
   // Alerts
-  if(dec.urgency>=0.5){
+  if(dec.urgency >= 0.5){
     const now = new Date();
     const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const el = document.createElement('div');
-    el.className = 'alert-item'+(dec.urgency>=0.7?' critical':'');
+    el.className = 'alert-item' + (dec.urgency >= 0.7 ? ' crit' : '');
     el.innerHTML = `<span class="alert-time">${ts}</span><span>${reasons}</span>`;
     const ac = document.getElementById('alerts');
-    const first = ac.firstElementChild;
-    if(first && first.textContent.includes('Waiting')) ac.innerHTML='';
+    if(ac.firstElementChild?.textContent.includes('AWAIT')) ac.innerHTML = '';
     ac.prepend(el);
-    while(ac.children.length>20) ac.removeChild(ac.lastChild);
+    while(ac.children.length > 20) ac.removeChild(ac.lastChild);
   }
 }
 
