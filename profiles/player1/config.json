@@ -1,0 +1,9 @@
+{
+  "gesture_map": {
+    "shoot": "shoot",
+    "look_left": "left",
+    "look_right": "right",
+    "look_up": "up",
+    "look_down": "down"
+  }
+}

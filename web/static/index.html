@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FluxChi — 工作状态仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface-2: #1a1a24;
+  --border: #2a2a3a;
+  --text: #e0e0ec;
+  --text-muted: #888899;
+  --accent: #4ecdc4;
+  --accent-glow: rgba(78, 205, 196, 0.15);
+  --work: #4ecdc4;
+  --rest: #a78bfa;
+  --warn: #fbbf24;
+  --urgent: #f87171;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.header h1 span { color: var(--accent); }
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #555;
+  display: inline-block;
+  margin-right: 8px;
+  transition: background 0.3s;
+}
+.status-dot.connected { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.status-dot.disconnected { background: var(--urgent); }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color 0.3s;
+}
+.card:hover { border-color: var(--accent); }
+.card-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.state-card { grid-column: 1 / -1; }
+.state-main {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.state-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: var(--accent-glow);
+  border: 2px solid var(--accent);
+  transition: all 0.5s;
+  flex-shrink: 0;
+}
+.state-icon.resting { background: rgba(167,139,250,0.15); border-color: var(--rest); }
+.state-icon.alert { background: rgba(248,113,113,0.15); border-color: var(--urgent); animation: pulse 1.5s infinite; }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(248,113,113,0); }
+}
+
+.state-text h2 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.state-text p { color: var(--text-muted); margin-top: 4px; font-size: 14px; }
+
+.state-metrics {
+  display: flex;
+  gap: 32px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.metric {
+  text-align: center;
+}
+.metric-value {
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.gauge {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.gauge-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s, background 0.5s;
+  background: var(--accent);
+}
+.gauge-fill.warn { background: var(--warn); }
+.gauge-fill.urgent { background: var(--urgent); }
+
+.prob-bars { display: flex; flex-direction: column; gap: 8px; }
+.prob-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prob-label {
+  width: 80px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+.prob-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.prob-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.prob-value {
+  width: 36px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.rms-chart-wrap { height: 180px; }
+
+.notification-card { grid-column: 1 / -1; max-height: 200px; overflow-y: auto; }
+.notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--warn);
+  animation: slideIn 0.3s ease-out;
+}
+.notification.urgent { border-left-color: var(--urgent); background: rgba(248,113,113,0.08); }
+.notification-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.timeline-wrap { grid-column: 1 / -1; height: 120px; }
+
+.emg-channels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.ch-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ch-bar-label { font-size: 10px; color: var(--text-muted); }
+.ch-bar-track {
+  width: 100%;
+  height: 48px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.ch-bar-fill {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: height 0.2s;
+  opacity: 0.8;
+}
+.ch-bar-val {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Flux<span>Chi</span></h1>
+  <div>
+    <span class="status-dot disconnected" id="statusDot"></span>
+    <span id="statusText" style="font-size:13px; color:var(--text-muted);">连接中...</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- State Card -->
+  <div class="card state-card">
+    <div class="state-main">
+      <div class="state-icon" id="stateIcon">⌨</div>
+      <div class="state-text">
+        <h2 id="stateTitle">等待连接</h2>
+        <p id="stateSubtitle">正在连接传感器...</p>
+      </div>
+      <div class="state-metrics">
+        <div class="metric">
+          <div class="metric-value" id="workMin">0</div>
+          <div class="metric-label">连续工作(分)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value" id="totalWork">0</div>
+          <div class="metric-label">累计工作(分)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value" id="fatiguePercent">0%</div>
+          <div class="metric-label">疲劳度</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Probabilities -->
+  <div class="card">
+    <div class="card-title">活动识别</div>
+    <div class="prob-bars" id="probBars">
+      <div class="prob-row"><span class="prob-label">打字</span><div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-typing" style="width:0%"></div></div><span class="prob-value" id="pv-typing">0%</span></div>
+      <div class="prob-row"><span class="prob-label">鼠标</span><div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-mouse_use" style="width:0%"></div></div><span class="prob-value" id="pv-mouse_use">0%</span></div>
+      <div class="prob-row"><span class="prob-label">静止</span><div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-idle" style="width:0%"></div></div><span class="prob-value" id="pv-idle">0%</span></div>
+      <div class="prob-row"><span class="prob-label">伸展</span><div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-stretching" style="width:0%"></div></div><span class="prob-value" id="pv-stretching">0%</span></div>
+    </div>
+    <div class="gauge" style="margin-top:16px;">
+      <div class="gauge-fill" id="confGauge" style="width:0%"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">置信度</div>
+  </div>
+
+  <!-- Fatigue -->
+  <div class="card">
+    <div class="card-title">肌肉疲劳</div>
+    <div class="gauge-wrap">
+      <div class="metric-value" id="fatigueScore" style="font-size:48px;">0%</div>
+      <div class="gauge" style="width:100%;">
+        <div class="gauge-fill" id="fatigueGauge" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;width:100%;font-size:11px;color:var(--text-muted);">
+        <span>轻松</span><span>疲劳</span>
+      </div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:var(--text-muted);">
+      <div>MDF: <span id="mdfCurrent">—</span> Hz</div>
+      <div>基线: <span id="mdfBaseline">—</span> Hz</div>
+      <div>趋势: <span id="mdfSlope">—</span> Hz/s</div>
+    </div>
+  </div>
+
+  <!-- EMG Channels -->
+  <div class="card">
+    <div class="card-title">EMG 通道 (RMS)</div>
+    <div class="emg-channels" id="emgChannels">
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch1-fill"></div></div><div class="ch-bar-label">CH1</div><div class="ch-bar-val" id="ch1-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch2-fill"></div></div><div class="ch-bar-label">CH2</div><div class="ch-bar-val" id="ch2-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch3-fill"></div></div><div class="ch-bar-label">CH3</div><div class="ch-bar-val" id="ch3-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch4-fill"></div></div><div class="ch-bar-label">CH4</div><div class="ch-bar-val" id="ch4-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch5-fill"></div></div><div class="ch-bar-label">CH5</div><div class="ch-bar-val" id="ch5-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch6-fill"></div></div><div class="ch-bar-label">CH6</div><div class="ch-bar-val" id="ch6-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch7-fill"></div></div><div class="ch-bar-label">CH7</div><div class="ch-bar-val" id="ch7-val">0</div></div>
+      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch8-fill"></div></div><div class="ch-bar-label">CH8</div><div class="ch-bar-val" id="ch8-val">0</div></div>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div class="card notification-card">
+    <div class="card-title">提醒</div>
+    <div id="notifications">
+      <div style="color:var(--text-muted);font-size:13px;">等待数据...</div>
+    </div>
+  </div>
+
+  <!-- Timeline Chart -->
+  <div class="card" style="grid-column: 1 / -1;">
+    <div class="card-title">疲劳趋势</div>
+    <div class="rms-chart-wrap">
+      <canvas id="fatigueChart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">FluxChi v1.0 — 数字游民工作状态管理系统</div>
+
+<script>
+const ACTIVITY_NAMES = { typing: '打字', mouse_use: '鼠标', idle: '静止', stretching: '伸展' };
+const STATE_NAMES = { working: '工作中', resting: '休息中', transition: '切换中' };
+const REC_NAMES = { keep_working: '继续工作', take_break: '建议休息', start_working: '可以开始', rest_more: '继续休息' };
+
+let ws = null;
+let reconnectTimer = null;
+let fatigueHistory = [];
+const MAX_HISTORY = 120;
+
+const fatigueChart = new Chart(document.getElementById('fatigueChart'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: '疲劳度',
+      data: [],
+      borderColor: '#4ecdc4',
+      backgroundColor: 'rgba(78,205,196,0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    scales: {
+      x: { display: false },
+      y: { min: 0, max: 1, ticks: { color: '#888899' }, grid: { color: '#2a2a3a' } }
+    },
+    plugins: {
+      legend: { display: false },
+      annotation: {
+        annotations: {
+          warnLine: { type: 'line', yMin: 0.4, yMax: 0.4, borderColor: '#fbbf24', borderWidth: 1, borderDash: [4, 4] },
+          urgentLine: { type: 'line', yMin: 0.7, yMax: 0.7, borderColor: '#f87171', borderWidth: 1, borderDash: [4, 4] },
+        }
+      }
+    }
+  }
+});
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusText').textContent = '已连接';
+  };
+
+  ws.onclose = () => {
+    document.getElementById('statusDot').className = 'status-dot disconnected';
+    document.getElementById('statusText').textContent = '断开，重连中...';
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onmessage = (ev) => {
+    const data = JSON.parse(ev.data);
+    if (data.type === 'state_update') updateUI(data);
+  };
+}
+
+function updateUI(d) {
+  // Activity probabilities
+  const probs = d.probabilities || {};
+  for (const [key, val] of Object.entries(probs)) {
+    const bar = document.getElementById(`prob-${key}`);
+    const pv = document.getElementById(`pv-${key}`);
+    if (bar) bar.style.width = `${(val * 100).toFixed(0)}%`;
+    if (pv) pv.textContent = `${(val * 100).toFixed(0)}%`;
+  }
+
+  // Confidence gauge
+  const confGauge = document.getElementById('confGauge');
+  confGauge.style.width = `${(d.confidence * 100).toFixed(0)}%`;
+
+  // Fatigue
+  const fs = d.fatigue || {};
+  const fatiguePercent = ((fs.score || 0) * 100).toFixed(0);
+  document.getElementById('fatigueScore').textContent = `${fatiguePercent}%`;
+  document.getElementById('fatiguePercent').textContent = `${fatiguePercent}%`;
+  const fg = document.getElementById('fatigueGauge');
+  fg.style.width = `${fatiguePercent}%`;
+  fg.className = 'gauge-fill' + (fs.score >= 0.7 ? ' urgent' : fs.score >= 0.4 ? ' warn' : '');
+
+  document.getElementById('mdfCurrent').textContent = (fs.mdf_current || 0).toFixed(1);
+  document.getElementById('mdfBaseline').textContent = (fs.mdf_baseline || 0).toFixed(1);
+  document.getElementById('mdfSlope').textContent = (fs.mdf_slope || 0).toFixed(3);
+
+  // Fatigue chart
+  fatigueHistory.push(fs.score || 0);
+  if (fatigueHistory.length > MAX_HISTORY) fatigueHistory.shift();
+  fatigueChart.data.labels = fatigueHistory.map((_, i) => i);
+  fatigueChart.data.datasets[0].data = fatigueHistory;
+  fatigueChart.update();
+
+  // EMG channels
+  const rms = d.rms || [];
+  const maxRms = Math.max(...rms, 1);
+  for (let i = 0; i < 8; i++) {
+    const val = rms[i] || 0;
+    const fill = document.getElementById(`ch${i+1}-fill`);
+    const valEl = document.getElementById(`ch${i+1}-val`);
+    if (fill) fill.style.height = `${Math.min(100, (val / maxRms) * 100)}%`;
+    if (valEl) valEl.textContent = val.toFixed(0);
+  }
+
+  // Decision state
+  const dec = d.decision || {};
+  const stateIcon = document.getElementById('stateIcon');
+  const stateTitle = document.getElementById('stateTitle');
+  const stateSub = document.getElementById('stateSubtitle');
+
+  const activityName = ACTIVITY_NAMES[d.activity] || d.activity;
+
+  if (dec.state === 'working') {
+    stateIcon.className = 'state-icon';
+    stateIcon.textContent = d.activity === 'typing' ? '⌨' : '🖱';
+    if (dec.urgency >= 0.5) {
+      stateIcon.className = 'state-icon alert';
+      stateTitle.textContent = '需要休息';
+    } else {
+      stateTitle.textContent = `工作中 · ${activityName}`;
+    }
+  } else {
+    stateIcon.className = 'state-icon resting';
+    stateIcon.textContent = d.activity === 'stretching' ? '🤸' : '😌';
+    stateTitle.textContent = `休息中 · ${activityName}`;
+  }
+
+  const recName = REC_NAMES[dec.recommendation] || '';
+  const reasons = (dec.reasons || []).join('；');
+  stateSub.textContent = `${recName}${reasons ? ' — ' + reasons : ''}`;
+
+  document.getElementById('workMin').textContent = (dec.continuous_work_min || 0).toFixed(0);
+  document.getElementById('totalWork').textContent = (dec.total_work_min || 0).toFixed(0);
+
+  // Notifications
+  if (dec.urgency >= 0.5) {
+    addNotification(reasons, dec.urgency >= 0.7);
+  }
+}
+
+function addNotification(msg, urgent) {
+  const container = document.getElementById('notifications');
+  if (container.children.length === 1 && container.children[0].tagName !== 'DIV') {
+    container.innerHTML = '';
+  }
+  const firstChild = container.firstElementChild;
+  if (firstChild && firstChild.textContent && firstChild.textContent.includes('等待')) {
+    container.innerHTML = '';
+  }
+
+  const now = new Date();
+  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+  const el = document.createElement('div');
+  el.className = `notification${urgent ? ' urgent' : ''}`;
+  el.innerHTML = `<span class="notification-time">${timeStr}</span><span>${msg}</span>`;
+  container.prepend(el);
+
+  while (container.children.length > 20) container.removeChild(container.lastChild);
+}
+
+connect();
+</script>
+</body>
+</html>

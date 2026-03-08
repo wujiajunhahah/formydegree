@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EMG FPS Arena</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      background: #0b1220;
+      font-family: "JetBrains Mono", "SF Pro Display", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: #f5f7ff;
+    }
+    #frame {
+      border: 4px solid #1e2d48;
+      padding: 12px;
+      background: radial-gradient(circle at top, #182845, #0b1220);
+      box-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+    }
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    #hud span {
+      color: #9cc9ff;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      border: 2px solid #16223a;
+    }
+    #tips {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #8fa6d6;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="frame">
+    <div id="hud">
+      <div>EMG FPS ARENA</div>
+      <div id="status">Connecting...</div>
+    </div>
+    <canvas id="game"></canvas>
+    <div id="tips">
+      <div>手势控制：左/右瞄准、射击、切枪、装弹（若配置）。</div>
+      <div>键盘测试：← → 空格射击，C 切枪，R 装弹。</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const statusEl = document.getElementById("status");
+    const scale = 3;
+    const baseWidth = 320;
+    const baseHeight = 180;
+    canvas.width = baseWidth * scale;
+    canvas.height = baseHeight * scale;
+    canvas.style.width = `${baseWidth * scale}px`;
+    canvas.style.height = `${baseHeight * scale}px`;
+
+    const buffer = document.createElement("canvas");
+    buffer.width = baseWidth;
+    buffer.height = baseHeight;
+    const ctx = buffer.getContext("2d");
+    const out = canvas.getContext("2d");
+    out.imageSmoothingEnabled = false;
+
+    const state = {
+      connected: false,
+      crosshair: 0,
+      score: 0,
+      combo: 0,
+      ammo: 6,
+      maxAmmo: 6,
+      reloadNeeded: false,
+      reloadCooldown: 0,
+      weaponIndex: 0,
+      lastShot: 0,
+      prediction: "--",
+      actions: {},
+      targets: [],
+      effects: [],
+      spawnTimer: 0,
+    };
+
+    const weapons = [
+      { name: "Blaster", cooldown: 0.25, score: 10, color: "#7bd389" },
+      { name: "Rail", cooldown: 0.6, score: 18, color: "#f45b69" },
+    ];
+
+    function connectSocket() {
+      const ws = new WebSocket("ws://127.0.0.1:8765");
+      ws.onopen = () => {
+        state.connected = true;
+        statusEl.textContent = "Online";
+      };
+      ws.onclose = () => {
+        state.connected = false;
+        statusEl.textContent = "Offline";
+        setTimeout(connectSocket, 1000);
+      };
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "hello") {
+          state.actions = msg.actions || {};
+        }
+        if (msg.type === "prediction") {
+          state.prediction = `${msg.label} (${msg.confidence.toFixed(2)})`;
+        }
+        if (msg.type === "action") {
+          handleAction(msg.action);
+        }
+      };
+    }
+
+    function handleAction(action) {
+      if (action === "aim_left") {
+        state.crosshair = Math.max(-0.9, state.crosshair - 0.15);
+      } else if (action === "aim_right") {
+        state.crosshair = Math.min(0.9, state.crosshair + 0.15);
+      } else if (action === "shoot") {
+        shoot();
+      } else if (action === "switch") {
+        switchWeapon();
+      } else if (action === "reload") {
+        reload();
+      }
+    }
+
+    function spawnTarget() {
+      const x = (Math.random() - 0.5) * 1.6;
+      const z = 1.8 + Math.random() * 1.2;
+      const speed = 0.25 + Math.random() * 0.2;
+      state.targets.push({ x, z, speed, hp: 1 });
+    }
+
+    function shoot() {
+      const now = performance.now() / 1000;
+      const weapon = weapons[state.weaponIndex];
+      if (now - state.lastShot < weapon.cooldown) return;
+      if (state.reloadNeeded) return;
+      if (state.ammo <= 0) {
+        state.reloadNeeded = true;
+        return;
+      }
+      state.lastShot = now;
+      state.ammo -= 1;
+
+      const hit = findTargetHit();
+      if (hit) {
+        const points = weapon.score + state.combo * 2;
+        state.score += points;
+        state.combo += 1;
+        state.effects.push({ x: hit.screenX, y: hit.screenY, timer: 0.4 });
+        state.targets.splice(hit.index, 1);
+      } else {
+        state.combo = 0;
+      }
+
+      if (state.ammo <= 0 && !state.actions.reload) {
+        state.reloadCooldown = 1.2;
+      }
+    }
+
+    function reload() {
+      if (!state.actions.reload) return;
+      state.reloadCooldown = 1.0;
+      state.reloadNeeded = false;
+    }
+
+    function switchWeapon() {
+      state.weaponIndex = (state.weaponIndex + 1) % weapons.length;
+    }
+
+    function findTargetHit() {
+      const width = baseWidth;
+      const height = baseHeight;
+      const cx = width / 2 + state.crosshair * width * 0.5;
+      for (let i = 0; i < state.targets.length; i++) {
+        const target = state.targets[i];
+        const screenX = width / 2 + (target.x / target.z) * width * 0.4;
+        const screenY = height * 0.55 - (0.2 / target.z) * height;
+        const size = (18 / target.z);
+        const dx = Math.abs(cx - screenX);
+        if (dx < size * 0.6 && target.z < 1.4) {
+          return { index: i, screenX, screenY };
+        }
+      }
+      return null;
+    }
+
+    function update(dt) {
+      state.spawnTimer -= dt;
+      if (state.spawnTimer <= 0) {
+        spawnTarget();
+        state.spawnTimer = 1.0 + Math.random() * 1.2;
+      }
+
+      state.targets.forEach((target) => {
+        target.z -= dt * target.speed;
+      });
+      state.targets = state.targets.filter((target) => {
+        if (target.z < 0.9) {
+          state.combo = 0;
+          return false;
+        }
+        return true;
+      });
+
+      if (state.reloadCooldown > 0) {
+        state.reloadCooldown -= dt;
+        if (state.reloadCooldown <= 0) {
+          state.ammo = state.maxAmmo;
+          state.reloadNeeded = false;
+        }
+      }
+
+      state.effects = state.effects.filter((effect) => {
+        effect.timer -= dt;
+        return effect.timer > 0;
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = "#0b1220";
+      ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, baseHeight);
+      gradient.addColorStop(0, "#14243e");
+      gradient.addColorStop(1, "#0b1220");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+      ctx.strokeStyle = "rgba(80, 120, 180, 0.35)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        const y = baseHeight * 0.45 + i * 16;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(baseWidth, y);
+        ctx.stroke();
+      }
+      for (let i = -5; i <= 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(baseWidth / 2 + i * 20, baseHeight * 0.45);
+        ctx.lineTo(baseWidth / 2 + i * 50, baseHeight);
+        ctx.stroke();
+      }
+
+      state.targets.forEach((target) => {
+        const screenX = baseWidth / 2 + (target.x / target.z) * baseWidth * 0.4;
+        const screenY = baseHeight * 0.55 - (0.2 / target.z) * baseHeight;
+        const size = 18 / target.z;
+        ctx.fillStyle = "#f5f7ff";
+        ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
+        ctx.fillStyle = "#f45b69";
+        ctx.fillRect(screenX - size / 4, screenY - size / 4, size / 2, size / 2);
+      });
+
+      state.effects.forEach((effect) => {
+        ctx.strokeStyle = "#7bd389";
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      const crossX = baseWidth / 2 + state.crosshair * baseWidth * 0.5;
+      const crossY = baseHeight * 0.65;
+      ctx.strokeStyle = "#9cc9ff";
+      ctx.beginPath();
+      ctx.moveTo(crossX - 6, crossY);
+      ctx.lineTo(crossX + 6, crossY);
+      ctx.moveTo(crossX, crossY - 6);
+      ctx.lineTo(crossX, crossY + 6);
+      ctx.stroke();
+
+      ctx.fillStyle = "#9cc9ff";
+      ctx.fillText(`Score ${state.score}`, 8, 14);
+      ctx.fillText(`Combo ${state.combo}`, 8, 28);
+      const weapon = weapons[state.weaponIndex];
+      ctx.fillStyle = weapon.color;
+      ctx.fillText(`${weapon.name}`, baseWidth - 70, 14);
+      ctx.fillStyle = "#f5f7ff";
+      const ammoText = state.reloadNeeded ? "RELOAD" : `${state.ammo}/${state.maxAmmo}`;
+      ctx.fillText(`Ammo ${ammoText}`, baseWidth - 90, 28);
+
+      ctx.fillStyle = "#8fa6d6";
+      ctx.fillText(`Prediction ${state.prediction}`, 8, baseHeight - 10);
+
+      out.clearRect(0, 0, canvas.width, canvas.height);
+      out.drawImage(buffer, 0, 0, canvas.width, canvas.height);
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "ArrowLeft") handleAction("aim_left");
+      if (event.code === "ArrowRight") handleAction("aim_right");
+      if (event.code === "Space") handleAction("shoot");
+      if (event.code === "KeyC") handleAction("switch");
+      if (event.code === "KeyR") handleAction("reload");
+    });
+
+    connectSocket();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
