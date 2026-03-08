@@ -2,695 +2,627 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FluxChi — 工作续航仪表盘</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>FluxChi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 :root {
-  --bg: #0a0a0f;
-  --surface: #13131a;
-  --surface-2: #1a1a24;
-  --border: #2a2a3a;
-  --text: #e0e0ec;
-  --text-muted: #888899;
-  --accent: #4ecdc4;
-  --accent-glow: rgba(78, 205, 196, 0.15);
-  --work: #4ecdc4;
-  --rest: #a78bfa;
-  --warn: #fbbf24;
-  --urgent: #f87171;
-  --green: #34d399;
-  --yellow: #fbbf24;
-  --red: #f87171;
-  --radius: 12px;
+  --black: #000000;
+  --dark: #0a0a0a;
+  --surface: #111111;
+  --line: #1a1a1a;
+  --muted: #555555;
+  --dim: #888888;
+  --text: #d4d4d4;
+  --white: #ffffff;
+  --red: #d71921;
+  --red-dim: rgba(215, 25, 33, 0.12);
+  --green: #3ddc84;
+  --green-dim: rgba(61, 220, 132, 0.12);
+  --yellow: #e8b931;
+  --yellow-dim: rgba(232, 185, 49, 0.12);
+  --mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html { background: var(--black); }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  background: var(--bg);
+  font-family: var(--mono);
+  background: var(--black);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
 }
 
-.header {
+/* ── Header ── */
+.hdr {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
 }
-.header h1 {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-}
-.header h1 span { color: var(--accent); }
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: #555;
-  display: inline-block;
-  margin-right: 8px;
-  transition: background 0.3s;
-}
-.status-dot.connected { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-.status-dot.disconnected { background: var(--urgent); }
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
-  padding: 20px 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  transition: border-color 0.3s;
-}
-.card:hover { border-color: var(--accent); }
-.card-title {
-  font-size: 12px;
+.hdr-brand {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+  color: var(--white);
 }
-
-.state-card { grid-column: 1 / -1; }
-.state-main {
+.hdr-brand i { color: var(--red); font-style: normal; }
+.hdr-status {
   display: flex;
   align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-.state-icon {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  background: var(--accent-glow);
-  border: 2px solid var(--accent);
-  transition: all 0.5s;
-  flex-shrink: 0;
-}
-.state-icon.resting { background: rgba(167,139,250,0.15); border-color: var(--rest); }
-.state-icon.alert { background: rgba(248,113,113,0.15); border-color: var(--urgent); animation: pulse 1.5s infinite; }
-.state-icon.fading { background: rgba(251,191,36,0.15); border-color: var(--warn); }
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.4); }
-  50% { box-shadow: 0 0 0 12px rgba(248,113,113,0); }
-}
-
-.state-text h2 {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-.state-text p { color: var(--text-muted); margin-top: 4px; font-size: 14px; }
-
-.state-metrics {
-  display: flex;
-  gap: 32px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
-.metric { text-align: center; }
-.metric-value {
-  font-size: 32px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.metric-label {
+  gap: 6px;
   font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  color: var(--muted);
   letter-spacing: 0.5px;
 }
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot.on { background: var(--red); box-shadow: 0 0 8px var(--red); }
 
-/* Stamina arc gauge */
-.stamina-arc-wrap {
+/* ── Layout ── */
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+}
+
+@media (min-width: 768px) {
+  .page {
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  .full { grid-column: 1 / -1; }
+}
+
+/* ── Section ── */
+.sec {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sec:last-child { border-bottom: none; }
+.sec-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── Stamina ring ── */
+.ring-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
+  gap: 4px;
 }
-.stamina-arc-svg {
-  width: 200px;
-  height: 120px;
-}
-.arc-bg {
+.ring-svg { width: 200px; height: 200px; }
+.ring-bg { fill: none; stroke: var(--line); stroke-width: 6; }
+.ring-fg {
   fill: none;
-  stroke: var(--surface-2);
-  stroke-width: 12;
+  stroke: var(--red);
+  stroke-width: 6;
   stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1), stroke 0.4s;
 }
-.arc-fill {
-  fill: none;
-  stroke: var(--green);
-  stroke-width: 12;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.5s, stroke 0.5s;
-}
-.stamina-center {
+.ring-center {
   position: absolute;
-  top: 62px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   text-align: center;
 }
-.stamina-big {
-  font-size: 42px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+.ring-outer { position: relative; display: inline-block; }
+.ring-num {
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--white);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.stamina-unit {
-  font-size: 14px;
-  color: var(--text-muted);
-  font-weight: 400;
-}
-.stamina-state-label {
+.ring-unit {
   font-size: 13px;
-  margin-top: 4px;
+  font-weight: 300;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.ring-state {
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: 1px;
+  margin-top: 4px;
 }
 
-/* Three dimensions */
-.dim-row {
-  display: flex;
+/* ── Stat row ── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 20px;
+}
+.stat {
+  background: var(--black);
+  padding: 14px 8px;
+  text-align: center;
+}
+.stat-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+.stat-lbl {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* ── Dimensions ── */
+.dims {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-top: 16px;
 }
-.dim-item {
-  flex: 1;
+.dim {
   text-align: center;
-  padding: 8px 4px;
-  background: var(--surface-2);
-  border-radius: 8px;
+  padding: 12px 4px;
+  border: 1px solid var(--line);
 }
-.dim-value {
-  font-size: 20px;
+.dim-val {
+  font-size: 18px;
   font-weight: 700;
+  color: var(--white);
   font-variant-numeric: tabular-nums;
 }
-.dim-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-
-.gauge {
+.dim-bar {
   width: 100%;
-  height: 8px;
-  background: var(--surface-2);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-.gauge-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s, background 0.5s;
-  background: var(--accent);
-}
-.gauge-fill.warn { background: var(--warn); }
-.gauge-fill.urgent { background: var(--urgent); }
-
-.prob-bars { display: flex; flex-direction: column; gap: 8px; }
-.prob-row { display: flex; align-items: center; gap: 8px; }
-.prob-label {
-  width: 80px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: right;
-  flex-shrink: 0;
-}
-.prob-bar-bg {
-  flex: 1;
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.prob-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.3s;
-}
-.prob-value {
-  width: 36px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-
-.rms-chart-wrap { height: 180px; }
-
-.notification-card { grid-column: 1 / -1; max-height: 200px; overflow-y: auto; }
-.notification {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 6px;
-  font-size: 13px;
-  background: var(--surface-2);
-  border-left: 3px solid var(--warn);
-  animation: slideIn 0.3s ease-out;
-}
-.notification.urgent { border-left-color: var(--urgent); background: rgba(248,113,113,0.08); }
-.notification-time {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.emg-channels {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-.ch-bar { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.ch-bar-label { font-size: 10px; color: var(--text-muted); }
-.ch-bar-track {
-  width: 100%;
-  height: 48px;
-  background: var(--surface-2);
-  border-radius: 4px;
+  height: 3px;
+  background: var(--line);
+  margin: 8px 0 6px;
   position: relative;
   overflow: hidden;
 }
-.ch-bar-fill {
+.dim-bar-fill {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  background: var(--red);
+  transition: width 0.4s;
+}
+.dim-lbl {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ── Suggestion banner ── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  transition: border-color 0.3s, background 0.3s;
+}
+.banner.warn { border-color: var(--yellow); background: var(--yellow-dim); }
+.banner.urgent { border-color: var(--red); background: var(--red-dim); }
+.banner-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+
+/* ── Activity ── */
+.act-bars { display: flex; flex-direction: column; gap: 8px; }
+.act-row { display: flex; align-items: center; gap: 8px; }
+.act-name {
+  width: 72px;
+  font-size: 11px;
+  color: var(--dim);
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+.act-track {
+  flex: 1;
+  height: 4px;
+  background: var(--line);
+  position: relative;
+  overflow: hidden;
+}
+.act-fill {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  background: var(--red);
+  transition: width 0.3s;
+}
+.act-pct {
+  width: 32px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── EMG grid ── */
+.emg-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+.emg-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.emg-track {
+  width: 100%;
+  height: 40px;
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+}
+.emg-fill {
   position: absolute;
   bottom: 0;
   width: 100%;
-  background: var(--accent);
-  border-radius: 4px;
-  transition: height 0.2s;
-  opacity: 0.8;
+  background: var(--red);
+  opacity: 0.7;
+  transition: height 0.15s;
 }
-.ch-bar-val { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
-
-.footer {
-  text-align: center;
-  padding: 16px;
-  font-size: 11px;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  margin-top: 20px;
+.emg-lbl {
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
 }
-
-.suggestion-row {
-  display: flex;
-  gap: 16px;
-  margin-top: 12px;
-}
-.suggestion-item {
-  flex: 1;
-  padding: 10px;
-  background: var(--surface-2);
-  border-radius: 8px;
-  text-align: center;
-}
-.suggestion-val {
-  font-size: 24px;
-  font-weight: 700;
+.emg-val {
+  font-size: 9px;
+  color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
-.suggestion-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 2px;
+
+/* ── Chart ── */
+.chart-wrap { height: 140px; margin-top: 4px; }
+
+/* ── Alerts ── */
+.alerts {
+  max-height: 160px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.alerts::-webkit-scrollbar { display: none; }
+.alert-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--dim);
+  animation: fadeUp 0.25s ease-out;
+}
+.alert-time {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.alert-item.critical .alert-time { color: var(--red); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Footer ── */
+.ftr {
+  text-align: center;
+  padding: 20px 0;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Flux<span>Chi</span></h1>
-  <div>
-    <span class="status-dot disconnected" id="statusDot"></span>
-    <span id="statusText" style="font-size:13px; color:var(--text-muted);">连接中...</span>
+<div class="hdr">
+  <div class="hdr-brand">FLUX<i>CHI</i></div>
+  <div class="hdr-status">
+    <span class="dot" id="dot"></span>
+    <span id="connText">OFFLINE</span>
   </div>
 </div>
 
-<div class="grid">
+<div class="page">
 
-  <!-- State Card -->
-  <div class="card state-card">
-    <div class="state-main">
-      <div class="state-icon" id="stateIcon">⏳</div>
-      <div class="state-text">
-        <h2 id="stateTitle">等待连接</h2>
-        <p id="stateSubtitle">正在连接传感器...</p>
-      </div>
-      <div class="state-metrics">
-        <div class="metric">
-          <div class="metric-value" id="staminaQuick">—</div>
-          <div class="metric-label">续航</div>
-        </div>
-        <div class="metric">
-          <div class="metric-value" id="workMin">0</div>
-          <div class="metric-label">连续工作(分)</div>
-        </div>
-        <div class="metric">
-          <div class="metric-value" id="totalWork">0</div>
-          <div class="metric-label">累计工作(分)</div>
-        </div>
-        <div class="metric">
-          <div class="metric-value" id="suggestTime">—</div>
-          <div class="metric-label" id="suggestLabel">预估</div>
+  <!-- ── Stamina ── -->
+  <div class="sec full">
+    <div class="ring-wrap">
+      <div class="ring-outer">
+        <svg class="ring-svg" viewBox="0 0 200 200">
+          <circle class="ring-bg" cx="100" cy="100" r="88" />
+          <circle class="ring-fg" id="ringFg" cx="100" cy="100" r="88" />
+        </svg>
+        <div class="ring-center">
+          <div class="ring-num" id="ringNum">—</div>
+          <div class="ring-unit">STAMINA</div>
+          <div class="ring-state" id="ringState">—</div>
         </div>
       </div>
     </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val" id="sWork">0</div>
+        <div class="stat-lbl">WORK MIN</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sTotal">0</div>
+        <div class="stat-lbl">TOTAL MIN</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sSuggest">—</div>
+        <div class="stat-lbl" id="sSuggestLbl">ESTIMATE</div>
+      </div>
+    </div>
+
+    <div id="bannerWrap"></div>
   </div>
 
-  <!-- Stamina Gauge -->
-  <div class="card">
-    <div class="card-title">工作续航</div>
-    <div class="stamina-arc-wrap">
-      <svg class="stamina-arc-svg" viewBox="0 0 200 120">
-        <path class="arc-bg" d="M 20 110 A 80 80 0 0 1 180 110" />
-        <path class="arc-fill" id="staminaArc" d="M 20 110 A 80 80 0 0 1 180 110" />
-      </svg>
-      <div class="stamina-center">
-        <div class="stamina-big" id="staminaValue">100</div>
-        <div class="stamina-state-label" id="staminaStateLabel">初始化...</div>
+  <!-- ── Dimensions ── -->
+  <div class="sec">
+    <div class="sec-label">DIMENSIONS</div>
+    <div class="dims">
+      <div class="dim">
+        <div class="dim-val" id="dCon">—</div>
+        <div class="dim-bar"><div class="dim-bar-fill" id="dConBar" style="width:0%"></div></div>
+        <div class="dim-lbl">FOCUS</div>
       </div>
-    </div>
-    <div class="suggestion-row">
-      <div class="suggestion-item">
-        <div class="suggestion-val" id="sugWorkMin">—</div>
-        <div class="suggestion-label">可专注 (分钟)</div>
+      <div class="dim">
+        <div class="dim-val" id="dTen">—</div>
+        <div class="dim-bar"><div class="dim-bar-fill" id="dTenBar" style="width:0%"></div></div>
+        <div class="dim-lbl">TENSION</div>
       </div>
-      <div class="suggestion-item">
-        <div class="suggestion-val" id="sugBreakMin">—</div>
-        <div class="suggestion-label">需休息 (分钟)</div>
+      <div class="dim">
+        <div class="dim-val" id="dFat">—</div>
+        <div class="dim-bar"><div class="dim-bar-fill" id="dFatBar" style="width:0%"></div></div>
+        <div class="dim-lbl">FATIGUE</div>
       </div>
-    </div>
-    <div class="dim-row">
-      <div class="dim-item">
-        <div class="dim-value" id="dimConsistency">—</div>
-        <div class="dim-label">专注度</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-value" id="dimTension">—</div>
-        <div class="dim-label">紧张度</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-value" id="dimFatigue">—</div>
-        <div class="dim-label">肌肉退化</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Activity Probabilities -->
-  <div class="card">
-    <div class="card-title">活动识别</div>
-    <div class="prob-bars" id="probBars">
-      <!-- dynamically generated from model classes -->
-    </div>
-    <div class="gauge" style="margin-top:16px;">
-      <div class="gauge-fill" id="confGauge" style="width:0%"></div>
-    </div>
-    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">置信度</div>
-  </div>
-
-  <!-- EMG Channels -->
-  <div class="card">
-    <div class="card-title">EMG 通道 (RMS)</div>
-    <div class="emg-channels" id="emgChannels">
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch1-fill"></div></div><div class="ch-bar-label">CH1</div><div class="ch-bar-val" id="ch1-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch2-fill"></div></div><div class="ch-bar-label">CH2</div><div class="ch-bar-val" id="ch2-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch3-fill"></div></div><div class="ch-bar-label">CH3</div><div class="ch-bar-val" id="ch3-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch4-fill"></div></div><div class="ch-bar-label">CH4</div><div class="ch-bar-val" id="ch4-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch5-fill"></div></div><div class="ch-bar-label">CH5</div><div class="ch-bar-val" id="ch5-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch6-fill"></div></div><div class="ch-bar-label">CH6</div><div class="ch-bar-val" id="ch6-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch7-fill"></div></div><div class="ch-bar-label">CH7</div><div class="ch-bar-val" id="ch7-val">0</div></div>
-      <div class="ch-bar"><div class="ch-bar-track"><div class="ch-bar-fill" id="ch8-fill"></div></div><div class="ch-bar-label">CH8</div><div class="ch-bar-val" id="ch8-val">0</div></div>
     </div>
   </div>
 
-  <!-- Notifications -->
-  <div class="card notification-card">
-    <div class="card-title">提醒</div>
-    <div id="notifications">
-      <div style="color:var(--text-muted);font-size:13px;">等待数据...</div>
+  <!-- ── Activity ── -->
+  <div class="sec">
+    <div class="sec-label">ACTIVITY</div>
+    <div class="act-bars" id="actBars"></div>
+  </div>
+
+  <!-- ── EMG ── -->
+  <div class="sec full">
+    <div class="sec-label">EMG CHANNELS</div>
+    <div class="emg-grid">
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e1"></div></div><div class="emg-lbl">1</div><div class="emg-val" id="ev1">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e2"></div></div><div class="emg-lbl">2</div><div class="emg-val" id="ev2">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e3"></div></div><div class="emg-lbl">3</div><div class="emg-val" id="ev3">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e4"></div></div><div class="emg-lbl">4</div><div class="emg-val" id="ev4">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e5"></div></div><div class="emg-lbl">5</div><div class="emg-val" id="ev5">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e6"></div></div><div class="emg-lbl">6</div><div class="emg-val" id="ev6">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e7"></div></div><div class="emg-lbl">7</div><div class="emg-val" id="ev7">0</div></div>
+      <div class="emg-col"><div class="emg-track"><div class="emg-fill" id="e8"></div></div><div class="emg-lbl">8</div><div class="emg-val" id="ev8">0</div></div>
     </div>
   </div>
 
-  <!-- Stamina Trend Chart -->
-  <div class="card" style="grid-column: 1 / -1;">
-    <div class="card-title">续航趋势</div>
-    <div class="rms-chart-wrap">
-      <canvas id="staminaChart"></canvas>
+  <!-- ── Trend ── -->
+  <div class="sec full">
+    <div class="sec-label">TREND</div>
+    <div class="chart-wrap">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Alerts ── -->
+  <div class="sec full">
+    <div class="sec-label">ALERTS</div>
+    <div class="alerts" id="alerts">
+      <div class="alert-item"><span class="alert-time">—</span><span>Waiting for signal...</span></div>
     </div>
   </div>
 
 </div>
 
-<div class="footer">FluxChi v2.0 — 数字游民工作续航管理系统</div>
+<div class="ftr">FLUXCHI V2.1</div>
 
 <script>
-const ACTIVITY_NAMES = {
-  typing: '打字', mouse_use: '鼠标', idle: '静止', stretching: '伸展',
-  finger_movement: '手指运动', rest: '静止', wrist_extend: '手腕伸展',
-  wrist_flex: '手腕屈曲', wrist_movement: '手腕运动'
+const NAMES = {
+  typing:'TYPE', mouse_use:'MOUSE', idle:'IDLE', stretching:'STRETCH',
+  finger_movement:'FINGER', rest:'REST', wrist_extend:'W.EXT',
+  wrist_flex:'W.FLEX', wrist_movement:'W.MOV'
 };
-let knownClasses = new Set();
-
-const STATE_LABELS = {
-  focused: { text: '专注中', color: '#34d399' },
-  fading: { text: '效率下降', color: '#fbbf24' },
-  depleted: { text: '续航耗尽', color: '#f87171' },
-  recovering: { text: '恢复中', color: '#a78bfa' }
+const STATES = {
+  focused: {t:'FOCUSED', c:'var(--red)'},
+  fading:  {t:'FADING',  c:'var(--yellow)'},
+  depleted:{t:'DEPLETED',c:'var(--red)'},
+  recovering:{t:'RECOVER',c:'var(--green)'}
 };
-const REC_NAMES = { keep_working: '继续工作', take_break: '建议休息', start_working: '可以开始', rest_more: '继续休息' };
+const REC = {keep_working:'CONTINUE', take_break:'TAKE BREAK', start_working:'READY', rest_more:'REST MORE'};
 
-let ws = null;
-let reconnectTimer = null;
-let staminaHistory = [];
-const MAX_HISTORY = 150;
+let ws, knownActs = new Set(), history = [];
+const MAX_H = 150;
 
-const staminaChart = new Chart(document.getElementById('staminaChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: '续航',
-      data: [],
-      borderColor: '#4ecdc4',
-      backgroundColor: 'rgba(78,205,196,0.08)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 0,
-      borderWidth: 2,
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 0 },
-    scales: {
-      x: { display: false },
-      y: {
-        min: 0, max: 100,
-        ticks: { color: '#888899', callback: v => v + '%' },
-        grid: { color: '#2a2a3a' }
-      }
+const ringEl = document.getElementById('ringFg');
+const CIRC = 2 * Math.PI * 88;
+ringEl.style.strokeDasharray = CIRC;
+ringEl.style.strokeDashoffset = CIRC;
+
+const chart = new Chart(document.getElementById('trendChart'), {
+  type:'line',
+  data:{labels:[], datasets:[{
+    data:[], borderColor:'#d71921', backgroundColor:'rgba(215,25,33,0.06)',
+    fill:true, tension:0.3, pointRadius:0, borderWidth:1.5
+  }]},
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    animation:{duration:0},
+    scales:{
+      x:{display:false},
+      y:{min:0, max:100, ticks:{color:'#555', font:{family:'JetBrains Mono',size:10}, callback:v=>v+'%'}, grid:{color:'#1a1a1a'}}
     },
-    plugins: {
-      legend: { display: false },
-    }
+    plugins:{legend:{display:false}}
   }
 });
 
-/* Stamina arc geometry */
-const ARC_PATH = document.getElementById('staminaArc');
-const ARC_LENGTH = ARC_PATH.getTotalLength();
-ARC_PATH.style.strokeDasharray = ARC_LENGTH;
-ARC_PATH.style.strokeDashoffset = 0;
-
-function setStaminaArc(pct) {
-  const offset = ARC_LENGTH * (1 - pct / 100);
-  ARC_PATH.style.strokeDashoffset = offset;
-  if (pct > 60) ARC_PATH.style.stroke = '#34d399';
-  else if (pct > 30) ARC_PATH.style.stroke = '#fbbf24';
-  else ARC_PATH.style.stroke = '#f87171';
-}
-
-function connect() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+function connect(){
+  const proto = location.protocol==='https:'?'wss:':'ws:';
   ws = new WebSocket(`${proto}//${location.host}/ws`);
-
-  ws.onopen = () => {
-    document.getElementById('statusDot').className = 'status-dot connected';
-    document.getElementById('statusText').textContent = '已连接';
+  ws.onopen = ()=>{
+    document.getElementById('dot').className='dot on';
+    document.getElementById('connText').textContent='LIVE';
   };
-  ws.onclose = () => {
-    document.getElementById('statusDot').className = 'status-dot disconnected';
-    document.getElementById('statusText').textContent = '断开，重连中...';
-    reconnectTimer = setTimeout(connect, 2000);
+  ws.onclose = ()=>{
+    document.getElementById('dot').className='dot';
+    document.getElementById('connText').textContent='OFFLINE';
+    setTimeout(connect, 2000);
   };
-  ws.onmessage = (ev) => {
-    const data = JSON.parse(ev.data);
-    if (data.type === 'state_update') updateUI(data);
+  ws.onmessage = e=>{
+    const d = JSON.parse(e.data);
+    if(d.type==='state_update') render(d);
   };
 }
 
-function updateUI(d) {
-  const probs = d.probabilities || {};
-  const probContainer = document.getElementById('probBars');
-  const newClasses = Object.keys(probs);
-  if (newClasses.length > 0 && newClasses.some(c => !knownClasses.has(c))) {
-    knownClasses = new Set(newClasses);
-    probContainer.innerHTML = '';
-    for (const key of newClasses) {
-      const label = ACTIVITY_NAMES[key] || key;
+function render(d){
+  const st = d.stamina||{};
+  const dec = d.decision||{};
+  const val = st.value!=null ? st.value : 100;
+  const state = st.state||'focused';
+
+  // Ring
+  const offset = CIRC * (1 - val/100);
+  ringEl.style.strokeDashoffset = offset;
+  const sInfo = STATES[state]||STATES.focused;
+  ringEl.style.stroke = sInfo.c;
+  document.getElementById('ringNum').textContent = Math.round(val);
+  const rs = document.getElementById('ringState');
+  rs.textContent = sInfo.t;
+  rs.style.color = sInfo.c;
+
+  // Stats
+  document.getElementById('sWork').textContent = Math.round(dec.continuous_work_min||0);
+  document.getElementById('sTotal').textContent = Math.round(dec.total_work_min||0);
+  const sugEl = document.getElementById('sSuggest');
+  const sugLbl = document.getElementById('sSuggestLbl');
+  if(state==='recovering'){
+    sugEl.textContent = Math.round(st.suggested_break_min||0);
+    sugLbl.textContent = 'REST MIN';
+  } else {
+    sugEl.textContent = Math.round(st.suggested_work_min||0);
+    sugLbl.textContent = 'FOCUS MIN';
+  }
+
+  // Banner
+  const bw = document.getElementById('bannerWrap');
+  const rec = REC[dec.recommendation]||'';
+  const reasons = (dec.reasons||[]).join(' · ');
+  if(dec.urgency>=0.5){
+    bw.innerHTML = `<div class="banner ${dec.urgency>=0.7?'urgent':'warn'}"><span class="banner-icon">${dec.urgency>=0.7?'◉':'◎'}</span><span>${rec} — ${reasons}</span></div>`;
+  } else if(reasons){
+    bw.innerHTML = `<div class="banner"><span class="banner-icon">·</span><span>${reasons}</span></div>`;
+  }
+
+  // Dimensions
+  const con = (st.consistency||0)*100, ten = (st.tension||0)*100, fat = (st.fatigue||0)*100;
+  document.getElementById('dCon').textContent = Math.round(con)+'%';
+  document.getElementById('dTen').textContent = Math.round(ten)+'%';
+  document.getElementById('dFat').textContent = Math.round(fat)+'%';
+  document.getElementById('dConBar').style.width = con+'%';
+  document.getElementById('dTenBar').style.width = ten+'%';
+  document.getElementById('dFatBar').style.width = fat+'%';
+
+  // Activity
+  const probs = d.probabilities||{};
+  const keys = Object.keys(probs);
+  if(keys.length && keys.some(k=>!knownActs.has(k))){
+    knownActs = new Set(keys);
+    const c = document.getElementById('actBars');
+    c.innerHTML = '';
+    for(const k of keys){
       const row = document.createElement('div');
-      row.className = 'prob-row';
-      row.innerHTML = `<span class="prob-label">${label}</span><div class="prob-bar-bg"><div class="prob-bar-fill" id="prob-${key}" style="width:0%"></div></div><span class="prob-value" id="pv-${key}">0%</span>`;
-      probContainer.appendChild(row);
+      row.className='act-row';
+      row.innerHTML = `<span class="act-name">${NAMES[k]||k}</span><div class="act-track"><div class="act-fill" id="af-${k}"></div></div><span class="act-pct" id="ap-${k}">0%</span>`;
+      c.appendChild(row);
     }
   }
-  for (const [key, val] of Object.entries(probs)) {
-    const bar = document.getElementById(`prob-${key}`);
-    const pv = document.getElementById(`pv-${key}`);
-    if (bar) bar.style.width = `${(val * 100).toFixed(0)}%`;
-    if (pv) pv.textContent = `${(val * 100).toFixed(0)}%`;
+  for(const [k,v] of Object.entries(probs)){
+    const f=document.getElementById('af-'+k), p=document.getElementById('ap-'+k);
+    if(f) f.style.width=(v*100).toFixed(0)+'%';
+    if(p) p.textContent=(v*100).toFixed(0)+'%';
   }
 
-  const confGauge = document.getElementById('confGauge');
-  confGauge.style.width = `${(d.confidence * 100).toFixed(0)}%`;
-
-  // --- Stamina ---
-  const st = d.stamina || {};
-  const staminaVal = st.value != null ? st.value : 100;
-  const stState = st.state || 'focused';
-
-  setStaminaArc(staminaVal);
-  document.getElementById('staminaValue').textContent = Math.round(staminaVal);
-  document.getElementById('staminaQuick').textContent = `${Math.round(staminaVal)}%`;
-  document.getElementById('staminaQuick').style.color =
-    staminaVal > 60 ? '#34d399' : staminaVal > 30 ? '#fbbf24' : '#f87171';
-
-  const sl = STATE_LABELS[stState] || STATE_LABELS.focused;
-  const stLabel = document.getElementById('staminaStateLabel');
-  stLabel.textContent = sl.text;
-  stLabel.style.color = sl.color;
-
-  document.getElementById('sugWorkMin').textContent =
-    st.suggested_work_min != null ? Math.round(st.suggested_work_min) : '—';
-  document.getElementById('sugBreakMin').textContent =
-    st.suggested_break_min != null ? Math.round(st.suggested_break_min) : '—';
-
-  document.getElementById('dimConsistency').textContent =
-    st.consistency != null ? (st.consistency * 100).toFixed(0) + '%' : '—';
-  document.getElementById('dimTension').textContent =
-    st.tension != null ? (st.tension * 100).toFixed(0) + '%' : '—';
-  document.getElementById('dimFatigue').textContent =
-    st.fatigue != null ? (st.fatigue * 100).toFixed(0) + '%' : '—';
-
-  // Stamina trend
-  staminaHistory.push(staminaVal);
-  if (staminaHistory.length > MAX_HISTORY) staminaHistory.shift();
-  staminaChart.data.labels = staminaHistory.map((_, i) => i);
-  staminaChart.data.datasets[0].data = staminaHistory;
-  staminaChart.update();
-
-  // EMG channels
-  const rms = d.rms || [];
-  const maxRms = Math.max(...rms, 1);
-  for (let i = 0; i < 8; i++) {
-    const val = rms[i] || 0;
-    const fill = document.getElementById(`ch${i+1}-fill`);
-    const valEl = document.getElementById(`ch${i+1}-val`);
-    if (fill) fill.style.height = `${Math.min(100, (val / maxRms) * 100)}%`;
-    if (valEl) valEl.textContent = val.toFixed(0);
+  // EMG
+  const rms = d.rms||[];
+  const mx = Math.max(...rms, 1);
+  for(let i=0;i<8;i++){
+    const v=rms[i]||0;
+    const f=document.getElementById('e'+(i+1));
+    const ev=document.getElementById('ev'+(i+1));
+    if(f) f.style.height=Math.min(100,(v/mx)*100)+'%';
+    if(ev) ev.textContent=Math.round(v);
   }
 
-  // Decision
-  const dec = d.decision || {};
-  const stateIcon = document.getElementById('stateIcon');
-  const stateTitle = document.getElementById('stateTitle');
-  const stateSub = document.getElementById('stateSubtitle');
-  const activityName = ACTIVITY_NAMES[d.activity] || d.activity;
+  // Trend
+  history.push(val);
+  if(history.length>MAX_H) history.shift();
+  chart.data.labels = history.map((_,i)=>i);
+  chart.data.datasets[0].data = history;
+  chart.update();
 
-  if (stState === 'focused') {
-    stateIcon.className = 'state-icon';
-    stateIcon.textContent = '🔥';
-    stateTitle.textContent = `专注中 · ${activityName}`;
-  } else if (stState === 'fading') {
-    stateIcon.className = 'state-icon fading';
-    stateIcon.textContent = '⚡';
-    stateTitle.textContent = `效率下降 · ${activityName}`;
-  } else if (stState === 'depleted') {
-    stateIcon.className = 'state-icon alert';
-    stateIcon.textContent = '🔋';
-    stateTitle.textContent = '续航耗尽 · 需要休息';
-  } else {
-    stateIcon.className = 'state-icon resting';
-    stateIcon.textContent = '🌿';
-    stateTitle.textContent = `恢复中 · ${activityName}`;
+  // Alerts
+  if(dec.urgency>=0.5){
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const el = document.createElement('div');
+    el.className = 'alert-item'+(dec.urgency>=0.7?' critical':'');
+    el.innerHTML = `<span class="alert-time">${ts}</span><span>${reasons}</span>`;
+    const ac = document.getElementById('alerts');
+    const first = ac.firstElementChild;
+    if(first && first.textContent.includes('Waiting')) ac.innerHTML='';
+    ac.prepend(el);
+    while(ac.children.length>20) ac.removeChild(ac.lastChild);
   }
-
-  const recName = REC_NAMES[dec.recommendation] || '';
-  const reasons = (dec.reasons || []).join('；');
-  stateSub.textContent = `${recName}${reasons ? ' — ' + reasons : ''}`;
-
-  document.getElementById('workMin').textContent = (dec.continuous_work_min || 0).toFixed(0);
-  document.getElementById('totalWork').textContent = (dec.total_work_min || 0).toFixed(0);
-
-  const suggestEl = document.getElementById('suggestTime');
-  const suggestLabelEl = document.getElementById('suggestLabel');
-  if (stState === 'recovering') {
-    suggestEl.textContent = `${Math.round(st.suggested_break_min || 0)}分`;
-    suggestLabelEl.textContent = '需休息';
-  } else {
-    suggestEl.textContent = `${Math.round(st.suggested_work_min || 0)}分`;
-    suggestLabelEl.textContent = '可专注';
-  }
-
-  if (dec.urgency >= 0.5) {
-    addNotification(reasons, dec.urgency >= 0.7);
-  }
-}
-
-function addNotification(msg, urgent) {
-  const container = document.getElementById('notifications');
-  const firstChild = container.firstElementChild;
-  if (firstChild && firstChild.textContent && firstChild.textContent.includes('等待')) {
-    container.innerHTML = '';
-  }
-  const now = new Date();
-  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-  const el = document.createElement('div');
-  el.className = `notification${urgent ? ' urgent' : ''}`;
-  el.innerHTML = `<span class="notification-time">${timeStr}</span><span>${msg}</span>`;
-  container.prepend(el);
-  while (container.children.length > 20) container.removeChild(container.lastChild);
 }
 
 connect();
